@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>選考企業追加・編集</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+<div class="page-header company-page-header page-header-with-scroll-button" id="pageTop">
+    <h1>選考企業追加・編集</h1>
+</div>
+
+<div class="fixed-nav fixed-nav-with-scroll-button fixed-nav-single-column">
+    <a href="/">トップへ戻る</a>
+    <button class="scroll-to-top-button company-scroll-to-top-button" type="button" onclick="scrollToPageTop()" aria-label="ページ上部へ戻る" title="ページ上部へ戻る">↑</button>
+</div>
+
+<div class="company-toolbar">
+    <button class="company-add-button" type="button" onclick="openSelectionForm()" aria-label="選考企業を追加" title="選考企業を追加">+</button>
+</div>
+
+<main class="selection-company-page">
+    <section class="selection-company-list" aria-label="選考企業一覧">
+        {% if not companies %}
+        <p class="empty-state">まだ選考企業は登録されていません。右上の＋から追加できます。</p>
+        {% endif %}
+        {% for company in companies %}
+        <article class="selection-company-card">
+            <div>
+                <h2>{{ company.company_name }}</h2>
+                <p>{{ company.industry or "業界未設定" }} / {{ company.current_status or "状態未設定" }}</p>
+                <p>{{ company.intern_summary or "概要未入力" }}</p>
+            </div>
+            <div class="selection-company-actions">
+                <button type="button" onclick="openSelectionForm({{ company.id }})">編集</button>
+                <form method="POST" action="/selection-companies/delete/{{ company.id }}" onsubmit="return confirm('この選考企業を削除しますか？');">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <button type="submit" class="danger">削除</button>
+                </form>
+            </div>
+        </article>
+        {% endfor %}
+    </section>
+</main>
+
+<div id="selectionFormModal" class="company-modal" onclick="closeSelectionForm()">
+    <div class="company-modal-content company-form-modal-content selection-form-modal-content" onclick="event.stopPropagation()">
+        <button class="company-modal-icon-button company-form-close" type="button" onclick="closeSelectionForm()" aria-label="閉じる" title="閉じる">×</button>
+        <h2 id="selectionFormTitle">選考企業を追加</h2>
+
+        <form id="selectionCompanyForm" method="POST" action="/selection-companies/new">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <div class="selection-form-grid">
+                <label>企業名</label>
+                <input type="text" name="company_name" id="selectionCompanyName" required>
+
+                <label>業界</label>
+                <select name="industry" id="selectionIndustry">
+                    <option value="">選択してください</option>
+                    {% for industry in industry_options %}
+                    <option value="{{ industry }}">{{ industry }}</option>
+                    {% endfor %}
+                </select>
+
+                <label class="inline-checkbox selection-checkbox">
+                    <input type="checkbox" name="submitted" id="selectionSubmitted" value="1">
+                    提出
+                </label>
+
+                <label>応募経路</label>
+                <input type="text" name="application_route" id="selectionApplicationRoute" placeholder="goodfind、外資就活、オファーなど">
+
+                <label>現在の状態</label>
+                <select name="current_status" id="selectionCurrentStatus">
+                    <option value="">選択してください</option>
+                    {% for status in status_options %}
+                    <option value="{{ status }}">{{ status }}</option>
+                    {% endfor %}
+                </select>
+
+                <label>インターン概要</label>
+                <textarea name="intern_summary" id="selectionInternSummary"></textarea>
+
+                <label>締め切り</label>
+                <input type="datetime-local" name="deadline_at" id="selectionDeadlineAt">
+
+                <label>参加日(開始時間)</label>
+                <input type="datetime-local" name="join_start_at" id="selectionJoinStartAt">
+
+                <label>参加日終了時間</label>
+                <input type="datetime-local" name="join_end_at" id="selectionJoinEndAt">
+
+                <label>合否</label>
+                <select name="result" id="selectionResult">
+                    <option value="">選択してください</option>
+                    {% for result in result_options %}
+                    <option value="{{ result }}">{{ result }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <input type="hidden" name="gd_completed" id="gdCompleted" value="0">
+            <input type="hidden" name="gd_log_type" id="gdLogTypeHidden">
+            <input type="hidden" name="gd_theme" id="gdThemeHidden">
+            <input type="hidden" name="gd_role" id="gdRoleHidden">
+            <input type="hidden" name="gd_situation" id="gdSituationHidden">
+            <input type="hidden" name="gd_my_action" id="gdMyActionHidden">
+            <input type="hidden" name="gd_result" id="gdResultHidden">
+            <input type="hidden" name="gd_reflection" id="gdReflectionHidden">
+
+            <div class="embedded-gd-area">
+                <button type="button" class="embedded-gd-open" onclick="openGdModal()">面接、GDログを作成</button>
+                <p id="gdCompleteMessage" class="gd-complete-message"></p>
+            </div>
+
+            <button type="submit">保存</button>
+        </form>
+    </div>
+</div>
+
+<div id="gdModal" class="company-modal" onclick="closeGdModal()">
+    <div class="company-modal-content company-form-modal-content selection-form-modal-content" onclick="event.stopPropagation()">
+        <button class="company-modal-icon-button company-form-close" type="button" onclick="closeGdModal()" aria-label="閉じる" title="閉じる">×</button>
+        <h2>面接、GDログを作成</h2>
+
+        <label>種類</label>
+        <select id="gdLogType">
+            <option value="GD">GD</option>
+            <option value="面接">面接</option>
+        </select>
+
+        <label>テーマ</label>
+        <input type="text" id="gdTheme" placeholder="例：少子高齢化について">
+
+        <label>自分の役割</label>
+        <input type="text" id="gdRole" placeholder="司会、まとめ役、発言補助など">
+
+        <label>状況</label>
+        <textarea id="gdSituation" placeholder="GDや面接の状況を書いてください"></textarea>
+
+        <label>自分の発言・行動</label>
+        <textarea id="gdMyAction" placeholder="自分が何を話したか、どう動いたかを書いてください"></textarea>
+
+        <label>結果</label>
+        <textarea id="gdResult" placeholder="議論や面接の結果、相手の反応などを書いてください"></textarea>
+
+        <label>反省</label>
+        <textarea id="gdReflection" placeholder="次回に活かしたい点を書いてください"></textarea>
+
+        <button type="button" onclick="completeGdLog()">完了</button>
+    </div>
+</div>
+
+<script>
+const selectionCompanies = {{ companies_data | tojson }};
+
+function scrollToPageTop() {
+    window.scrollTo({ top: 0, behavior: "smooth" });
+}
+
+function findSelectionCompany(id) {
+    return selectionCompanies.find(company => company.id === Number(id));
+}
+
+function setFormValue(id, value) {
+    document.getElementById(id).value = value || "";
+}
+
+function openSelectionForm(id) {
+    const company = id ? findSelectionCompany(id) : null;
+    const form = document.getElementById("selectionCompanyForm");
+
+    document.getElementById("selectionFormTitle").textContent = company ? "選考企業を編集" : "選考企業を追加";
+    form.action = company ? `/selection-companies/edit/${company.id}` : "/selection-companies/new";
+
+    setFormValue("selectionCompanyName", company && company.company_name);
+    setFormValue("selectionIndustry", company && company.industry);
+    document.getElementById("selectionSubmitted").checked = Boolean(company && company.submitted);
+    setFormValue("selectionApplicationRoute", company && company.application_route);
+    setFormValue("selectionCurrentStatus", company && company.current_status);
+    setFormValue("selectionInternSummary", company && company.intern_summary);
+    setFormValue("selectionDeadlineAt", company && company.deadline_at);
+    setFormValue("selectionJoinStartAt", company && company.join_start_at);
+    setFormValue("selectionJoinEndAt", company && company.join_end_at);
+    setFormValue("selectionResult", company && company.result);
+
+    document.getElementById("gdCompleted").value = "0";
+    document.getElementById("gdCompleteMessage").textContent = "";
+    document.getElementById("selectionFormModal").style.display = "flex";
+}
+
+function closeSelectionForm() {
+    document.getElementById("selectionFormModal").style.display = "none";
+}
+
+function openGdModal() {
+    document.getElementById("gdModal").style.display = "flex";
+}
+
+function closeGdModal() {
+    document.getElementById("gdModal").style.display = "none";
+}
+
+function completeGdLog() {
+    const fieldMap = [
+        ["gdLogType", "gdLogTypeHidden"],
+        ["gdTheme", "gdThemeHidden"],
+        ["gdRole", "gdRoleHidden"],
+        ["gdSituation", "gdSituationHidden"],
+        ["gdMyAction", "gdMyActionHidden"],
+        ["gdResult", "gdResultHidden"],
+        ["gdReflection", "gdReflectionHidden"],
+    ];
+    fieldMap.forEach(([source, target]) => {
+        document.getElementById(target).value = document.getElementById(source).value;
+    });
+    document.getElementById("gdCompleted").value = "1";
+    document.getElementById("gdCompleteMessage").textContent = "入力完了";
+    closeGdModal();
+}
+</script>
+
+</body>
+</html>

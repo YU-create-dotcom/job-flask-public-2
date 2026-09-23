@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>設定</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+  <div class="page-header"><h1>利用者設定</h1></div>
+  <div class="fixed-nav"><a href="/">トップへ戻る</a></div>
+  <main class="settings-page">
+    {% if message %}<p class="form-success">{{ message }}</p>{% endif %}
+    {% if error %}<p class="form-error">{{ error }}</p>{% endif %}
+
+    <section class="settings-card">
+      <h2>外部連携</h2>
+      <p>この配布版では、外部サービス連携を使わず、入力内容をこのアプリ内に保存します。</p>
+    </section>
+
+    {% if not login_disabled %}
+      <section class="settings-card">
+        <h2>パスワード変更</h2>
+        <form method="POST">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+          <input type="hidden" name="action" value="password">
+          <label>現在のパスワード</label>
+          <input type="password" name="current_password" required>
+          <label>新しいパスワード（8文字以上）</label>
+          <input type="password" name="new_password" minlength="8" required>
+          <button type="submit">変更する</button>
+        </form>
+      </section>
+    {% endif %}
+  </main>
+</body>
+</html>
